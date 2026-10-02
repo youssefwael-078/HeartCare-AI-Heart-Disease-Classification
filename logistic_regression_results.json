@@ -1,0 +1,122 @@
+{
+  "model_key": "logistic_regression",
+  "model_label": "Logistic Regression",
+  "mode": "Auto (GridSearchCV \u2014 5-fold CV)",
+  "best_params": {
+    "C": 0.01,
+    "penalty": "l2",
+    "solver": "lbfgs"
+  },
+  "cv_mean": 82.58,
+  "cv_std": 1.62,
+  "accuracy": 81.97,
+  "precision": 80.56,
+  "recall": 87.88,
+  "f1": 84.06,
+  "confusion_matrix": [
+    [
+      21,
+      7
+    ],
+    [
+      4,
+      29
+    ]
+  ],
+  "classification_report": {
+    "No Disease": {
+      "precision": 0.84,
+      "recall": 0.75,
+      "f1-score": 0.7924528301886793,
+      "support": 28.0
+    },
+    "Heart Disease": {
+      "precision": 0.8055555555555556,
+      "recall": 0.8787878787878788,
+      "f1-score": 0.8405797101449275,
+      "support": 33.0
+    },
+    "accuracy": 0.819672131147541,
+    "macro avg": {
+      "precision": 0.8227777777777778,
+      "recall": 0.8143939393939394,
+      "f1-score": 0.8165162701668034,
+      "support": 61.0
+    },
+    "weighted avg": {
+      "precision": 0.8213661202185794,
+      "recall": 0.819672131147541,
+      "f1-score": 0.8184886832797643,
+      "support": 61.0
+    }
+  },
+  "feature_names": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "feature_importance": [
+    {
+      "feature": "cp",
+      "importance": 15.11
+    },
+    {
+      "feature": "exang",
+      "importance": 11.77
+    },
+    {
+      "feature": "ca",
+      "importance": 11.54
+    },
+    {
+      "feature": "thalach",
+      "importance": 11.11
+    },
+    {
+      "feature": "thal",
+      "importance": 10.14
+    },
+    {
+      "feature": "sex",
+      "importance": 9.97
+    },
+    {
+      "feature": "oldpeak",
+      "importance": 9.67
+    },
+    {
+      "feature": "slope",
+      "importance": 6.79
+    },
+    {
+      "feature": "chol",
+      "importance": 3.75
+    },
+    {
+      "feature": "restecg",
+      "importance": 3.36
+    },
+    {
+      "feature": "age",
+      "importance": 2.93
+    },
+    {
+      "feature": "trestbps",
+      "importance": 2.67
+    },
+    {
+      "feature": "fbs",
+      "importance": 1.19
+    }
+  ]
+}

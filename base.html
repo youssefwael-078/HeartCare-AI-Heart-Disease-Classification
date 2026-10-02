@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}HeartCare AI{% endblock %} — Academic ML Project</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">🫀</span>
+      <span class="brand-name">HeartCare AI</span>
+      <span class="brand-sub">ML Diagnostic System</span>
+    </div>
+
+    <ul class="sidebar-nav">
+      <li>
+        <a href="{{ url_for('home') }}" class="{{ 'active' if request.endpoint == 'home' }}">
+          <span class="nav-icon">🏠</span> Home &amp; Dataset
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('train_page') }}" class="{{ 'active' if request.endpoint == 'train_page' }}">
+          <span class="nav-icon">⚙️</span> Train Model
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('predict_page') }}" class="{{ 'active' if request.endpoint == 'predict_page' }}">
+          <span class="nav-icon">🔬</span> Predict
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('best_params_page') }}" class="{{ 'active' if request.endpoint == 'best_params_page' }}">
+          <span class="nav-icon">🏆</span> Best Parameters
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <strong>Dataset:</strong> UCI Heart Disease<br>
+      <strong>Models:</strong> LR · RF · SVM<br>
+      <strong>Framework:</strong><br>
+      <strong>Year:</strong> Academic Project
+    </div>
+  </aside>
+
+  <!-- ── Main Content ──────────────────────────────────────────────────── -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

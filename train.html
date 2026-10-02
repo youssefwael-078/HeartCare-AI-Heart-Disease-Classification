@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% block title %}Train Model{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in">
+  <span class="badge-tag">⚙️ Step 2</span>
+  <h1>Model Training</h1>
+  <p>Select a classifier, configure hyperparameters, then click Train.</p>
+</div>
+
+<!-- ── Configure Card ──────────────────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">🧠 Configure &amp; Train</div>
+
+  <!-- Model selector -->
+  <div class="form-group" style="max-width:340px;">
+    <label class="form-label">Model Type</label>
+    <select class="form-control" id="modelSelect" onchange="onModelChange()">
+      {% for key, info in models.items() %}
+      <option value="{{ key }}">{{ info.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle fade-in" style="margin: 18px 0 20px;">
+    <label class="form-label">Tuning Mode</label>
+    <div class="toggle-group">
+      <button class="toggle-btn active" id="btnAuto"   onclick="setMode('auto')">
+        🔍 Auto (GridSearchCV)
+      </button>
+      <button class="toggle-btn"        id="btnManual" onclick="setMode('manual')">
+        🎛️ Manual Parameters
+      </button>
+    </div>
+    <p class="mode-hint" id="modeHint">
+      GridSearchCV will test all combinations using 5-fold cross-validation and pick the best.
+    </p>
+  </div>
+
+  <!-- Manual param selectors (hidden by default) -->
+  <div id="manualParamsArea" style="display:none;">
+    <div class="alert alert-info" style="margin-bottom:16px;">
+      ℹ️ Choose one value for each hyperparameter. The model will be trained with exactly these settings (no grid search).
+    </div>
+
+    <!-- Params rendered per-model via JS -->
+    {% for key, info in models.items() %}
+    <div class="param-selectors" id="params_{{ key }}" style="display:none;">
+      <div class="form-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:16px;">
+        {% for pkey, pinfo in info.ui_params.items() %}
+        <div class="form-group">
+          <label class="form-label">{{ pinfo.label }}</label>
+          <select class="form-control" name="param_{{ pkey }}" id="param_{{ key }}_{{ pkey }}">
+            {% for opt in pinfo.options %}
+            <option value="{{ opt }}">{{ opt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <button class="btn btn-primary" id="trainBtn" onclick="runTraining()" style="margin-top:8px;">
+    ⚡ Train Model
+  </button>
+</div>
+
+<!-- ── Results Area ────────────────────────────────────────────────────── -->
+<div id="resultsArea" style="display:none;">
+
+  <!-- Mode badge -->
+  <div class="card fade-in" style="padding:14px 20px;">
+    <span id="modeBadge" class="badge badge-info" style="font-size:.82rem;"></span>
+  </div>
+
+  <!-- Metrics -->
+  <div class="card fade-in">
+    <div class="card-title">📈 Performance Metrics</div>
+    <div class="stat-grid" id="metricsGrid"></div>
+    <div id="metricBars" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Confusion Matrix Heatmap -->
+  <div class="card fade-in">
+    <div class="card-title">🔲 Confusion Matrix</div>
+    <div id="cmWrapper"></div>
+    <div style="margin-top:14px; font-size:.78rem; color:var(--grey-500);">
+      <strong style="color:var(--green);">Green</strong> = Correct &nbsp;|&nbsp;
+      <strong style="color:var(--red);">Red</strong> = Errors
+    </div>
+  </div>
+
+  <!-- Feature Importance Chart -->
+  <div class="card fade-in" id="featImportanceCard" style="display:none;">
+    <div class="card-title">📊 Feature Importance</div>
+    <div id="featImportanceChart"></div>
+  </div>
+
+  <!-- Classification Report -->
+  <div class="card fade-in">
+    <div class="card-title">📋 Classification Report</div>
+    <div class="table-wrap" id="reportTable"></div>
+  </div>
+
+  <!-- Cross-Validation -->
+  <div class="card fade-in">
+    <div class="card-title">🔄 Cross-Validation (5-Fold)</div>
+    <div id="cvResult"></div>
+  </div>
+
+  <!-- Best / Used Params -->
+  <div class="card fade-in">
+    <div class="card-title" id="paramsCardTitle">🏆 Best Parameters (GridSearchCV)</div>
+    <div class="param-grid" id="bestParamsGrid"></div>
+  </div>
+</div>
+
+<!-- ── Previously Trained ─────────────────────────────────────────────── -->
+{% if saved %}
+<div class="card fade-in" style="margin-top:8px;">
+  <div class="card-title">📦 Previously Trained Models</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th><th>Mode</th><th>Accuracy</th>
+          <th>Precision</th><th>Recall</th><th>F1-Score</th><th>CV Mean</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for key, res in saved.items() %}
+        <tr>
+          <td style="font-weight:600;">{{ res.model_label }}</td>
+          <td style="font-size:.78rem; color:var(--grey-500);">
+            {{ res.mode if res.mode is defined else '—' }}
+          </td>
+          <td><span class="badge badge-info">{{ res.accuracy }}%</span></td>
+          <td>{{ res.precision }}%</td>
+          <td>{{ res.recall }}%</td>
+          <td>{{ res.f1 }}%</td>
+          <td style="font-family:var(--font-mono); font-size:.8rem;">
+            {{ res.cv_mean }}% ± {{ res.cv_std }}%
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let currentMode = 'auto';
+
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('btnAuto').classList.toggle('active',   m === 'auto');
+  document.getElementById('btnManual').classList.toggle('active', m === 'manual');
+  document.getElementById('manualParamsArea').style.display = m === 'manual' ? 'block' : 'none';
+  document.getElementById('modeHint').textContent = m === 'auto'
+    ? 'GridSearchCV will test all combinations using 5-fold cross-validation and pick the best.'
+    : 'Choose exact values — the model trains once with these settings (faster).';
+  onModelChange();
+}
+
+function onModelChange() {
+  // Show correct param group
+  document.querySelectorAll('.param-selectors').forEach(el => el.style.display = 'none');
+  if (currentMode === 'manual') {
+    const key = document.getElementById('modelSelect').value;
+    const el  = document.getElementById('params_' + key);
+    if (el) el.style.display = 'block';
+  }
+}
+
+// ── Training ─────────────────────────────────────────────────────────────
+async function runTraining() {
+  const btn   = document.getElementById('trainBtn');
+  const model = document.getElementById('modelSelect').value;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Training…';
+  document.getElementById('resultsArea').style.display = 'none';
+
+  try {
+    const fd = new FormData();
+    fd.append('model_key', model);
+    fd.append('mode', currentMode);
+
+    // Collect manual params if needed
+    if (currentMode === 'manual') {
+      const container = document.getElementById('params_' + model);
+      if (container) {
+        container.querySelectorAll('select').forEach(sel => {
+          fd.append(sel.name, sel.value);
+        });
+      }
+    }
+
+    const res  = await fetch('/train/run', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status !== 'success') throw new Error(data.message);
+
+    renderResults(data.results);
+    document.getElementById('resultsArea').style.display = 'block';
+    document.getElementById('resultsArea').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    alert('Training failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⚡ Train Model';
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function renderResults(r) {
+  // Mode badge
+  document.getElementById('modeBadge').textContent = '⚙️ Mode: ' + r.mode;
+
+  // Stat boxes
+  document.getElementById('metricsGrid').innerHTML = `
+    <div class="stat-box"><span class="stat-val" style="color:var(--teal)">${r.accuracy}%</span><span class="stat-label">Accuracy</span></div>
+    <div class="stat-box"><span class="stat-val" style="color:var(--green)">${r.precision}%</span><span class="stat-label">Precision</span></div>
+    <div class="stat-box"><span class="stat-val" style="color:var(--amber)">${r.recall}%</span><span class="stat-label">Recall</span></div>
+    <div class="stat-box"><span class="stat-val" style="color:var(--red)">${r.f1}%</span><span class="stat-label">F1-Score</span></div>`;
+
+  // Metric progress bars
+  const metrics = [
+    { label:'Accuracy',  val:r.accuracy,  cls:'accuracy'  },
+    { label:'Precision', val:r.precision, cls:'precision' },
+    { label:'Recall',    val:r.recall,    cls:'recall'    },
+    { label:'F1-Score',  val:r.f1,        cls:'f1'        },
+  ];
+  document.getElementById('metricBars').innerHTML = metrics.map(m => `
+    <div class="metric-row">
+      <span class="metric-label">${m.label}</span>
+      <div class="metric-bar-track">
+        <div class="metric-bar-fill ${m.cls}" style="width:${m.val}%"></div>
+      </div>
+      <span class="metric-val">${m.val}%</span>
+    </div>`).join('');
+
+  // ── Confusion Matrix heatmap ─────────────────────────────────────────
+  const cm = r.confusion_matrix;
+  const tn = cm[0][0], fp = cm[0][1], fn = cm[1][0], tp = cm[1][1];
+  const total = tn + fp + fn + tp;
+
+  function heatColor(val, max, isCorrect) {
+    const intensity = Math.round((val / max) * 200);
+    return isCorrect
+      ? `rgba(82,183,136,${0.15 + (val/max)*0.7})`
+      : `rgba(230,57,70,${0.1 + (val/max)*0.7})`;
+  }
+  const maxVal = Math.max(tn, fp, fn, tp);
+
+  document.getElementById('cmWrapper').innerHTML = `
+    <div style="display:flex; align-items:flex-start; gap:32px; flex-wrap:wrap;">
+      <!-- Grid -->
+      <div>
+        <div class="cm-grid">
+          <div></div>
+          <div class="cm-header">Pred: No Disease</div>
+          <div class="cm-header">Pred: Heart Disease</div>
+          <div class="cm-header">Actual: No Disease</div>
+          <div class="cm-cell" style="background:${heatColor(tn,maxVal,true)}; color:#fff;">
+            <div style="font-size:1.5rem;font-weight:700;">${tn}</div>
+            <div style="font-size:.65rem;opacity:.8;margin-top:2px;">True Negative</div>
+            <div style="font-size:.65rem;opacity:.7;">${((tn/total)*100).toFixed(1)}%</div>
+          </div>
+          <div class="cm-cell" style="background:${heatColor(fp,maxVal,false)}; color:#fff;">
+            <div style="font-size:1.5rem;font-weight:700;">${fp}</div>
+            <div style="font-size:.65rem;opacity:.8;margin-top:2px;">False Positive</div>
+            <div style="font-size:.65rem;opacity:.7;">${((fp/total)*100).toFixed(1)}%</div>
+          </div>
+          <div class="cm-header">Actual: Heart Disease</div>
+          <div class="cm-cell" style="background:${heatColor(fn,maxVal,false)}; color:#fff;">
+            <div style="font-size:1.5rem;font-weight:700;">${fn}</div>
+            <div style="font-size:.65rem;opacity:.8;margin-top:2px;">False Negative</div>
+            <div style="font-size:.65rem;opacity:.7;">${((fn/total)*100).toFixed(1)}%</div>
+          </div>
+          <div class="cm-cell" style="background:${heatColor(tp,maxVal,true)}; color:#fff;">
+            <div style="font-size:1.5rem;font-weight:700;">${tp}</div>
+            <div style="font-size:.65rem;opacity:.8;margin-top:2px;">True Positive</div>
+            <div style="font-size:.65rem;opacity:.7;">${((tp/total)*100).toFixed(1)}%</div>
+          </div>
+        </div>
+      </div>
+      <!-- Legend summary -->
+      <div style="display:flex;flex-direction:column;gap:10px;justify-content:center;">
+        <div class="cm-legend-item" style="border-left:3px solid var(--green);">
+          <strong>TN ${tn}</strong> — Correctly predicted No Disease
+        </div>
+        <div class="cm-legend-item" style="border-left:3px solid var(--red);">
+          <strong>FP ${fp}</strong> — Predicted Disease but was Healthy
+        </div>
+        <div class="cm-legend-item" style="border-left:3px solid var(--red);">
+          <strong>FN ${fn}</strong> — Missed actual Disease (dangerous!)
+        </div>
+        <div class="cm-legend-item" style="border-left:3px solid var(--green);">
+          <strong>TP ${tp}</strong> — Correctly predicted Heart Disease
+        </div>
+      </div>
+    </div>`;
+
+  // ── Feature Importance ───────────────────────────────────────────────
+  const fiCard = document.getElementById('featImportanceCard');
+  if (r.feature_importance && r.feature_importance.length > 0) {
+    fiCard.style.display = 'block';
+    const fi = r.feature_importance;
+    const colors = ['var(--teal)','var(--green)','var(--amber)','var(--red)',
+                    '#a8dadc','#457b9d','#f4a261','#2ec4b6','#52b788','#e63946',
+                    'var(--grey-300)','#c77dff','#7209b7'];
+    document.getElementById('featImportanceChart').innerHTML =
+      fi.map((item, i) => `
+        <div class="metric-row" style="align-items:center;">
+          <span class="metric-label" style="width:110px;font-family:var(--font-mono);font-size:.75rem;">
+            ${item.feature}
+          </span>
+          <div class="metric-bar-track" style="flex:1;">
+            <div class="metric-bar-fill" style="width:${item.importance}%;background:${colors[i % colors.length]};"></div>
+          </div>
+          <span class="metric-val" style="width:52px;">${item.importance}%</span>
+        </div>`).join('');
+  } else {
+    fiCard.style.display = 'none';
+  }
+
+  // ── Classification Report ─────────────────────────────────────────────
+  const rep  = r.classification_report;
+  const rows = ['No Disease','Heart Disease','macro avg','weighted avg'];
+  document.getElementById('reportTable').innerHTML = `
+    <table>
+      <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1-Score</th><th>Support</th></tr></thead>
+      <tbody>
+        ${rows.map(cls => rep[cls] ? `
+          <tr>
+            <td style="font-weight:600;">${cls}</td>
+            <td>${(rep[cls].precision*100).toFixed(1)}%</td>
+            <td>${(rep[cls].recall*100).toFixed(1)}%</td>
+            <td>${(rep[cls]['f1-score']*100).toFixed(1)}%</td>
+            <td>${rep[cls].support}</td>
+          </tr>` : '').join('')}
+      </tbody>
+    </table>`;
+
+  // ── CV ────────────────────────────────────────────────────────────────
+  document.getElementById('cvResult').innerHTML = `
+    <div class="alert alert-success">
+      ✅ 5-Fold CV Accuracy: <strong>${r.cv_mean}%</strong> ± ${r.cv_std}%
+    </div>`;
+
+  // ── Params used ───────────────────────────────────────────────────────
+  const isManual = r.mode && r.mode.startsWith('Manual');
+  document.getElementById('paramsCardTitle').innerHTML = isManual
+    ? '🎛️ Manual Parameters Used'
+    : '🏆 Best Parameters Found (GridSearchCV)';
+
+  document.getElementById('bestParamsGrid').innerHTML =
+    Object.entries(r.best_params).map(([k,v]) => `
+      <div class="param-box">
+        <div class="param-key">${k}</div>
+        <div class="param-val">${v ?? 'None'}</div>
+      </div>`).join('');
+}
+
+// Init
+onModelChange();
+</script>
+{% endblock %}

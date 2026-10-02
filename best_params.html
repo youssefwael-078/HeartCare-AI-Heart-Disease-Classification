@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Best Parameters{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in">
+  <span class="badge-tag">🏆 Step 4</span>
+  <h1>Best Hyperparameters</h1>
+  <p>Optimal parameters discovered by GridSearchCV — and a visual comparison across all trained models.</p>
+</div>
+
+{% if not all_params %}
+<div class="alert alert-danger fade-in">
+  ⚠️ No models have been trained yet.
+  <a href="{{ url_for('train_page') }}">Train a model first →</a>
+</div>
+{% else %}
+
+<!-- ── Visual Bar Chart Comparison ─────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">📊 Visual Model Comparison</div>
+
+  <!-- Metric tab switcher -->
+  <div class="toggle-group" style="margin-bottom:24px;" id="chartTabs">
+    {% for metric in ['accuracy','precision','recall','f1'] %}
+    <button class="toggle-btn {{ 'active' if loop.first }}"
+            onclick="renderChart('{{ metric }}')"
+            id="tab_{{ metric }}">
+      {{ metric|capitalize }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <div id="barChartArea" style="max-width:600px;"></div>
+</div>
+
+<!-- ── Comparison Table ─────────────────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">📋 Metrics Table</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th><th>Accuracy</th><th>Precision</th>
+          <th>Recall</th><th>F1-Score</th><th>CV Mean ± Std</th><th>Rank</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for res in all_results.values() | sort(attribute='accuracy', reverse=True) %}
+        {% set loop_idx = loop.index %}
+        <tr>
+          <td style="font-weight:600;">{{ res.model_label }}</td>
+          <td><span class="badge badge-info">{{ res.accuracy }}%</span></td>
+          <td>{{ res.precision }}%</td>
+          <td>{{ res.recall }}%</td>
+          <td>{{ res.f1 }}%</td>
+          <td style="font-family:var(--font-mono);font-size:.82rem;">
+            {{ res.cv_mean }}% ± {{ res.cv_std }}%
+          </td>
+          <td>
+            {% if loop_idx == 1 %}<span class="badge badge-success">🥇 Best</span>
+            {% elif loop_idx == 2 %}<span class="badge badge-info">🥈 2nd</span>
+            {% else %}<span class="badge" style="background:rgba(255,255,255,.06);color:var(--grey-300);">🥉 3rd</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Per-Model Detail Cards ───────────────────────────────────────────── -->
+{% for key, params in all_params.items() %}
+{% set res = all_results.get(key) %}
+<div class="card fade-in">
+  <div class="card-title">
+    🔧 {{ models[key].label }}
+    {% if res %}
+    <span style="font-size:.75rem;color:var(--grey-500);font-family:var(--font-body);font-weight:400;">
+      — Accuracy {{ res.accuracy }}% &nbsp;|&nbsp; Mode: {{ res.mode if res.mode is defined else '—' }}
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Best Params -->
+  <div class="param-grid">
+    {% for k, v in params.items() %}
+    <div class="param-box">
+      <div class="param-key">{{ k }}</div>
+      <div class="param-val">{{ v if v is not none else 'None' }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if res %}
+  <!-- Metric bars -->
+  <div style="margin-top:22px;">
+    {% for metric, color in [('accuracy','teal'),('precision','green'),('recall','amber'),('f1','red')] %}
+    <div class="metric-row">
+      <span class="metric-label">{{ metric|capitalize }}</span>
+      <div class="metric-bar-track">
+        <div class="metric-bar-fill {{ metric }}" style="width:{{ res[metric] }}%"></div>
+      </div>
+      <span class="metric-val">{{ res[metric] }}%</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Confusion Matrix -->
+  <div style="margin-top:22px;">
+    <div style="font-size:.78rem;color:var(--grey-500);margin-bottom:10px;">Confusion Matrix</div>
+    {% set cm = res.confusion_matrix %}
+    {% set total = cm[0][0] + cm[0][1] + cm[1][0] + cm[1][1] %}
+    <div class="cm-grid">
+      <div></div>
+      <div class="cm-header">Pred: 0</div>
+      <div class="cm-header">Pred: 1</div>
+      <div class="cm-header">Actual: 0</div>
+      <div class="cm-cell tn">
+        <div style="font-size:1.3rem;font-weight:700;">{{ cm[0][0] }}</div>
+        <div style="font-size:.6rem;opacity:.75;">TN</div>
+      </div>
+      <div class="cm-cell fp">
+        <div style="font-size:1.3rem;font-weight:700;">{{ cm[0][1] }}</div>
+        <div style="font-size:.6rem;opacity:.75;">FP</div>
+      </div>
+      <div class="cm-header">Actual: 1</div>
+      <div class="cm-cell fn">
+        <div style="font-size:1.3rem;font-weight:700;">{{ cm[1][0] }}</div>
+        <div style="font-size:.6rem;opacity:.75;">FN</div>
+      </div>
+      <div class="cm-cell tp">
+        <div style="font-size:1.3rem;font-weight:700;">{{ cm[1][1] }}</div>
+        <div style="font-size:.6rem;opacity:.75;">TP</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature Importance (if available) -->
+  {% if res.feature_importance and res.feature_importance|length > 0 %}
+  <div style="margin-top:22px;">
+    <div style="font-size:.78rem;color:var(--grey-500);margin-bottom:10px;">Feature Importance</div>
+    {% for item in res.feature_importance %}
+    <div class="metric-row">
+      <span class="metric-label" style="width:90px;font-family:var(--font-mono);font-size:.72rem;">
+        {{ item.feature }}
+      </span>
+      <div class="metric-bar-track">
+        <div class="metric-bar-fill accuracy" style="width:{{ item.importance }}%;"></div>
+      </div>
+      <span class="metric-val" style="width:48px;">{{ item.importance }}%</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% endif %}
+</div>
+{% endfor %}
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Inject model data from Jinja into JS
+const MODEL_DATA = {
+  {% for key, res in all_results.items() %}
+  "{{ key }}": {
+    label:     "{{ res.model_label }}",
+    accuracy:  {{ res.accuracy }},
+    precision: {{ res.precision }},
+    recall:    {{ res.recall }},
+    f1:        {{ res.f1 }},
+    cv_mean:   {{ res.cv_mean }},
+  },
+  {% endfor %}
+};
+
+const BAR_COLORS = ['var(--teal)', 'var(--amber)', 'var(--red)'];
+
+function renderChart(metric) {
+  // Update active tab
+  document.querySelectorAll('#chartTabs .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.id === 'tab_' + metric);
+  });
+
+  const keys   = Object.keys(MODEL_DATA);
+  const labels = keys.map(k => MODEL_DATA[k].label);
+  const values = keys.map(k => MODEL_DATA[k][metric]);
+  const maxVal = Math.max(...values, 60);
+
+  const bars = keys.map((k, i) => {
+    const pct   = values[i];
+    const color = BAR_COLORS[i % BAR_COLORS.length];
+    const isTop = pct === Math.max(...values);
+    return `
+      <div style="margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:.85rem;font-weight:600;color:var(--white);">
+            ${labels[i]}
+            ${isTop ? ' <span class="badge badge-success" style="font-size:.65rem;padding:2px 7px;">Best</span>' : ''}
+          </span>
+          <span style="font-family:var(--font-mono);font-size:.85rem;color:${color};">${pct}%</span>
+        </div>
+        <div style="background:rgba(255,255,255,.07);border-radius:8px;height:28px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:8px;
+                      transition:width .6s cubic-bezier(.4,0,.2,1);
+                      box-shadow:0 0 12px ${color}55;">
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('barChartArea').innerHTML = bars;
+}
+
+// Init with accuracy
+document.addEventListener('DOMContentLoaded', () => renderChart('accuracy'));
+</script>
+{% endblock %}

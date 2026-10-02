@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Predict{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in">
+  <span class="badge-tag">🔬 Step 3</span>
+  <h1>Patient Diagnosis</h1>
+  <p>Enter clinical measurements below. The selected model will predict the likelihood of heart disease.</p>
+</div>
+
+<div class="alert alert-info fade-in">
+  ℹ️ You must train at least one model before making predictions.
+  <a href="{{ url_for('train_page') }}">Go to Training →</a>
+</div>
+
+<div class="card fade-in">
+  <div class="card-title">🏥 Patient Data Entry</div>
+
+  <!-- Model selector -->
+  <div class="form-group" style="max-width:300px; margin-bottom:24px;">
+    <label class="form-label">Select Model</label>
+    <select class="form-control" id="modelSelect">
+      {% for key, info in models.items() %}
+      <option value="{{ key }}">{{ info.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Feature inputs -->
+  <div class="form-grid" id="featureForm">
+    {% for col, info in feature_info.items() %}
+    <div class="form-group">
+      <label class="form-label">
+        {{ info.label }}
+      </label>
+      <input
+        type="{{ 'number' if info.type == 'number' else 'number' }}"
+        step="{{ '0.1' if info.type == 'float' else '1' }}"
+        class="form-control"
+        id="feat_{{ col }}"
+        name="{{ col }}"
+        placeholder="{{ info.label }}"
+        required
+      >
+      <div class="feat-desc">{{ info.desc }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="margin-top:20px;">
+    <button class="btn btn-teal" id="predictBtn" onclick="runPrediction()">
+      🔬 Diagnose Patient
+    </button>
+    <button class="btn btn-secondary" style="margin-left:10px;" onclick="fillSample(0)">
+      Load Healthy Sample
+    </button>
+    <button class="btn btn-secondary" style="margin-left:10px;" onclick="fillSample(1)">
+      Load Sick Sample
+    </button>
+  </div>
+</div>
+
+<!-- Result -->
+<div id="resultCard" class="card fade-in" style="display:none;">
+  <div class="card-title">🩺 Diagnosis Result</div>
+  <div id="resultBox"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Sample patient data for demo purposes
+const SAMPLES = {
+  0: { age:52, sex:1, cp:0, trestbps:125, chol:212, fbs:0, restecg:1, thalach:168, exang:0, oldpeak:1,   slope:2, ca:2, thal:3 },
+  1: { age:67, sex:1, cp:0, trestbps:160, chol:286, fbs:0, restecg:2, thalach:108, exang:1, oldpeak:1.5, slope:1, ca:3, thal:2 },
+};
+
+function fillSample(cls) {
+  const s = SAMPLES[cls];
+  for (const [k, v] of Object.entries(s)) {
+    const el = document.getElementById('feat_' + k);
+    if (el) el.value = v;
+  }
+}
+
+async function runPrediction() {
+  const btn = document.getElementById('predictBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analysing…';
+
+  const fd = new FormData();
+  fd.append('model_key', document.getElementById('modelSelect').value);
+
+  // Collect all feature inputs
+  const inputs = document.querySelectorAll('#featureForm input');
+  for (const inp of inputs) {
+    fd.append(inp.name, inp.value || 0);
+  }
+
+  try {
+    const res  = await fetch('/predict/run', { method:'POST', body:fd });
+    const data = await res.json();
+
+    if (data.status !== 'success') throw new Error(data.message);
+
+    renderResult(data.result);
+    document.getElementById('resultCard').style.display = 'block';
+    document.getElementById('resultCard').scrollIntoView({ behavior:'smooth' });
+  } catch(err) {
+    alert('Prediction error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔬 Diagnose Patient';
+  }
+}
+
+function renderResult(r) {
+  const icon  = r.color === 'success' ? '💚' : '❤️‍🩹';
+  document.getElementById('resultBox').innerHTML = `
+    <div class="prediction-result ${r.color}">
+      <span class="result-icon">${icon}</span>
+      <span class="result-label">${r.label}</span>
+      <span class="result-conf">Confidence: <strong>${r.confidence}%</strong></span>
+
+      <div style="max-width:380px; margin:20px auto 0;">
+        <div class="prob-bar-row">
+          <span class="prob-label">No Disease</span>
+          <div class="prob-track"><div class="prob-fill-green" style="width:${r.prob_healthy}%"></div></div>
+          <span style="font-family:var(--font-mono); font-size:.82rem; width:42px;">${r.prob_healthy}%</span>
+        </div>
+        <div class="prob-bar-row">
+          <span class="prob-label">Disease</span>
+          <div class="prob-track"><div class="prob-fill-red" style="width:${r.prob_disease}%"></div></div>
+          <span style="font-family:var(--font-mono); font-size:.82rem; width:42px;">${r.prob_disease}%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-info" style="margin-top:16px; font-size:.8rem;">
+      ⚠️ <strong>Disclaimer:</strong> This tool is for academic demonstration only.
+      It is not a substitute for professional medical advice.
+    </div>`;
+}
+</script>
+{% endblock %}

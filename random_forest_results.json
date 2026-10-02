@@ -1,0 +1,122 @@
+{
+  "model_key": "random_forest",
+  "model_label": "Random Forest",
+  "mode": "Auto (GridSearchCV \u2014 5-fold CV)",
+  "best_params": {
+    "max_depth": 10,
+    "min_samples_split": 2,
+    "n_estimators": 50
+  },
+  "cv_mean": 84.22,
+  "cv_std": 3.91,
+  "accuracy": 77.05,
+  "precision": 78.79,
+  "recall": 78.79,
+  "f1": 78.79,
+  "confusion_matrix": [
+    [
+      21,
+      7
+    ],
+    [
+      7,
+      26
+    ]
+  ],
+  "classification_report": {
+    "No Disease": {
+      "precision": 0.75,
+      "recall": 0.75,
+      "f1-score": 0.75,
+      "support": 28.0
+    },
+    "Heart Disease": {
+      "precision": 0.7878787878787878,
+      "recall": 0.7878787878787878,
+      "f1-score": 0.7878787878787878,
+      "support": 33.0
+    },
+    "accuracy": 0.7704918032786885,
+    "macro avg": {
+      "precision": 0.7689393939393939,
+      "recall": 0.7689393939393939,
+      "f1-score": 0.7689393939393939,
+      "support": 61.0
+    },
+    "weighted avg": {
+      "precision": 0.7704918032786885,
+      "recall": 0.7704918032786885,
+      "f1-score": 0.7704918032786885,
+      "support": 61.0
+    }
+  },
+  "feature_names": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "feature_importance": [
+    {
+      "feature": "cp",
+      "importance": 17.8
+    },
+    {
+      "feature": "thalach",
+      "importance": 12.44
+    },
+    {
+      "feature": "ca",
+      "importance": 11.0
+    },
+    {
+      "feature": "oldpeak",
+      "importance": 10.11
+    },
+    {
+      "feature": "thal",
+      "importance": 9.05
+    },
+    {
+      "feature": "exang",
+      "importance": 8.42
+    },
+    {
+      "feature": "age",
+      "importance": 8.1
+    },
+    {
+      "feature": "chol",
+      "importance": 6.68
+    },
+    {
+      "feature": "trestbps",
+      "importance": 6.42
+    },
+    {
+      "feature": "sex",
+      "importance": 4.35
+    },
+    {
+      "feature": "slope",
+      "importance": 2.45
+    },
+    {
+      "feature": "restecg",
+      "importance": 2.14
+    },
+    {
+      "feature": "fbs",
+      "importance": 1.04
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in">
+  <span class="badge-tag">🎓 Academic ML Project</span>
+  <h1>Heart Disease Classification</h1>
+  <p>A complete machine learning pipeline — from raw data to real-time prediction.</p>
+</div>
+
+<!-- ── Project Description ─────────────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">📋 About This Project</div>
+  <p style="color:#ced4da; line-height:1.9; font-size:.92rem;">
+    This project applies supervised machine learning to predict whether a patient
+    has heart disease based on clinical measurements. It trains three classification
+    models — <strong>Logistic Regression</strong>, <strong>Random Forest</strong>,
+    and <strong>Support Vector Machine</strong> — and uses GridSearchCV to find the
+    optimal hyperparameters for each. The best model is then deployed in this
+    Flask web interface for interactive prediction.
+  </p>
+</div>
+
+<!-- ── Dataset Stats ───────────────────────────────────────────────────── -->
+<div class="stat-grid fade-in">
+  <div class="stat-box">
+    <span class="stat-val">{{ summary.rows }}</span>
+    <span class="stat-label">Total Samples</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-val">{{ summary.cols - 1 }}</span>
+    <span class="stat-label">Features</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-val">{{ summary.missing }}</span>
+    <span class="stat-label">Missing Values</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-val">{{ summary.duplicates }}</span>
+    <span class="stat-label">Duplicates</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-val">2</span>
+    <span class="stat-label">Target Classes</span>
+  </div>
+</div>
+
+<!-- ── Class Distribution ─────────────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">🎯 Target Variable Distribution</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; max-width:500px;">
+    {% for cls, count in summary.class_counts.items() %}
+    <div class="stat-box" style="text-align:left; display:flex; align-items:center; gap:16px;">
+      <div>
+        <span class="stat-val" style="font-size:1.6rem; color:{{ 'var(--green)' if cls == 0 else 'var(--red)' }}">
+          {{ count }}
+        </span>
+        <span class="stat-label">{{ target_classes[cls] }}</span>
+      </div>
+      <span style="font-size:2rem;">{{ '💚' if cls == 0 else '❤️' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Feature Glossary ────────────────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">📊 Feature Glossary</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Column</th>
+          <th>Label</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for col, info in feature_info.items() %}
+        <tr>
+          <td><code style="font-family:var(--font-mono); color:var(--teal); font-size:.8rem;">{{ col }}</code></td>
+          <td style="font-weight:500;">{{ info.label }}</td>
+          <td style="color:var(--grey-500); font-size:.83rem;">{{ info.desc }}</td>
+        </tr>
+        {% endfor %}
+        <tr style="background:rgba(230,57,70,.05);">
+          <td><code style="font-family:var(--font-mono); color:var(--red); font-size:.8rem;">target</code></td>
+          <td style="font-weight:500; color:var(--red);">Target (Label)</td>
+          <td style="color:var(--grey-500); font-size:.83rem;">0 = No Disease, 1 = Heart Disease Present</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Sample Data ─────────────────────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">🗄️ Sample Data (First 6 Rows)</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for col in feature_info.keys() %}
+          <th>{{ col }}</th>
+          {% endfor %}
+          <th>target</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in sample %}
+        <tr>
+          {% for col in feature_info.keys() %}
+          <td>{{ row[col] }}</td>
+          {% endfor %}
+          <td>
+            <span class="badge {{ 'badge-success' if row.target == 0 else 'badge-danger' }}">
+              {{ row.target }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Preprocessing Steps ────────────────────────────────────────────── -->
+<div class="card fade-in">
+  <div class="card-title">🧹 Preprocessing Pipeline</div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:14px;">
+    {% for step in [
+      ('1', '🗑️', 'Remove Duplicates', 'Exact duplicate rows are dropped to avoid bias.'),
+      ('2', '🩹', 'Handle Missing Values', 'Columns with nulls are filled with median imputation.'),
+      ('3', '📐', 'Outlier Capping (IQR)', 'Extreme values capped at Q1−1.5×IQR / Q3+1.5×IQR.'),
+      ('4', '📏', 'Feature Scaling', 'StandardScaler normalises features to mean=0, std=1.'),
+      ('5', '✂️', 'Train / Test Split', '80 % training, 20 % test, stratified by target class.'),
+    ] %}
+    <div class="param-box">
+      <div class="param-key">Step {{ step[0] }}</div>
+      <div style="font-size:1.3rem; margin:6px 0;">{{ step[1] }}</div>
+      <div style="font-weight:600; font-size:.88rem; margin-bottom:4px;">{{ step[2] }}</div>
+      <div style="font-size:.77rem; color:var(--grey-500);">{{ step[3] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
